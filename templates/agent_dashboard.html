@@ -1,0 +1,302 @@
+{% macro icon(name) -%}
+<svg class="icon" aria-hidden="true" focusable="false"><use href="#i-{{ name }}"/></svg>
+{%- endmacro %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extension Agent Terminal | AgriBridge Ethiopia</title>
+    <meta name="description" content="AgriBridge Extension & Cooperative Agent Portal - Smallholder registration, harvest lot tracking, and demand matching.">
+    <meta name="theme-color" content="#0A3D31">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M3.5 19.5C3.5 12 8 6.5 15.5 4.5c.4 7.5-3 13.5-12 15Z' fill='%230A7A41'/%3E%3Cpath d='M7 28C6 15 14 6 28.5 4.5 29 18.5 21 27 7 28Z' fill='%2312A05B'/%3E%3Cpath d='M8 26.5C13 19 18.5 13 25 8.5' fill='none' stroke='%23fff' stroke-width='1.7' stroke-linecap='round'/%3E%3C/svg%3E">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+Ethiopic:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/agent_dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-shell.css') }}">
+</head>
+<body class="agent-body">
+    {% include 'partials/icons.html' %}
+
+    <!-- ===== Top Header ===== -->
+    <header class="site-header" id="site-header">
+        <div class="wrap header-row">
+            <div class="brand-group">
+                <a class="brand" href="/" aria-label="AgriBridge home">
+                    {% include 'partials/logo.html' %}
+                    AgriBridge
+                </a>
+                <span class="portal-tag">Extension &amp; Cooperative Agent</span>
+            </div>
+
+            <nav class="dash-nav" aria-label="Agent navigation">
+                <a href="#farmers" aria-current="true">Registered Farmers</a>
+                <a href="#produce-lots">Produce Lots</a>
+                <a href="#orders">Buyer Orders</a>
+                <a href="#transfer-approvals">Delivery Approvals</a>
+                <a href="#hub-supply">Request Hub Supply</a>
+                <a href="/register-farmer">+ New Farmer</a>
+            </nav>
+
+            <div class="header-user">
+                <div class="user-badge">
+                    <div class="user-avatar" title="{{ username or 'Agent' }}">
+                        {{ (username[0] if username else 'A') | upper }}
+                    </div>
+                    <div class="user-info">
+                        <div class="user-name">{{ username or 'Cooperative Agent' }}</div>
+                    <div class="user-role">{{ hub_location or 'Hub assignment required' }}</div>
+                    </div>
+                </div>
+                <a href="/logout" class="btn btn-ghost btn-sm" title="Log out of terminal">
+                    {{ icon('arrow-right') }} Log out
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- ===== Main Content ===== -->
+    <main class="main-content" id="main">
+
+        <!-- Welcome Banner -->
+        <section class="welcome-card" aria-label="Agent summary">
+            <div class="welcome-copy">
+                <div class="welcome-pill">
+                    {{ icon('users') }} Smallholder Representative Terminal
+                </div>
+                <h1>Agent Coordination Center</h1>
+                <p>
+                    Onboard smallholders, digitize harvested produce lots, and negotiate fair-value agreements on behalf of your farming cooperative.
+                </p>
+            </div>
+            <div class="welcome-actions">
+                <a href="/register-farmer" class="btn btn-primary btn-lg">
+                    {{ icon('user') }} Onboard Farmer
+                </a>
+                <a href="/add-produce-lot" class="btn btn-outline btn-lg">
+                    {{ icon('package') }} Add Produce Lot
+                </a>
+            </div>
+        </section>
+
+        <!-- KPI Metrics Grid -->
+        <section class="metrics-grid" aria-label="Key metrics">
+            <div class="metric-card">
+                <div class="metric-ic metric-ic-green">
+                    {{ icon('users') }}
+                </div>
+                <div class="metric-content">
+                    <span class="metric-label">Registered Farmers</span>
+                    <span class="metric-val" id="metric-registered-farmers">0 <small style="font-size:.9rem;font-weight:600;">Farmers</small></span>
+                    <span class="metric-sub">Across regional rural Kebeles</span>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-ic metric-ic-blue">
+                    {{ icon('package') }}
+                </div>
+                <div class="metric-content">
+                    <span class="metric-label">Active Produce Lots</span>
+                    <span class="metric-val" id="metric-active-lots">0 <small style="font-size:.9rem;font-weight:600;">Lots</small></span>
+                    <span class="metric-sub">Recorded in hub silos</span>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-ic metric-ic-amber">
+                    {{ icon('chart') }}
+                </div>
+                <div class="metric-content">
+                    <span class="metric-label">Aggregated Volume</span>
+                    <span class="metric-val" id="metric-aggregated-volume">0 <small style="font-size:.9rem;font-weight:600;">Qtl</small></span>
+                    <span class="metric-sub">White Teff, Wheat &amp; Maize</span>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Section 1: Registered Farmers Directory -->
+        <section id="farmers" class="dash-card">
+            <div class="dash-card-header">
+                <div>
+                    <h2>{{ icon('users') }} Registered Smallholder Farmers</h2>
+                    <p>Farmers registered under your agent account.</p>
+                </div>
+                <div style="display:flex; align-items:center; gap:.75rem; flex-wrap:wrap;">
+                    <input
+                        type="text"
+                        id="farmer-search"
+                        placeholder="Search Kebele ID or Name..."
+                        style="padding:.45rem .8rem; font-size:.8125rem; border:1px solid var(--line); border-radius:8px; min-height:2.35rem;"
+                    >
+                    <a href="/register-farmer" class="btn btn-primary btn-sm">
+                        {{ icon('user') }} + Onboard Farmer
+                    </a>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="dash-table">
+                    <thead>
+                        <tr>
+                            <th>Kebele ID</th>
+                            <th>Farmer Full Name</th>
+                            <th>Location (Woreda / Kebele)</th>
+                            <th class="text-right">Land Size</th>
+                            <th>Primary Crop</th>
+                            <th>Disbursement Account</th>
+                            <th class="text-center">Verification</th>
+                            <th class="text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="farmers-tbody"><tr><td colspan="8">Loading live records...</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Section 2: Produce Lots in Cooperative Silos -->
+        <section id="produce-lots" class="dash-card">
+            <div class="dash-card-header">
+                <div>
+                    <h2>{{ icon('package') }} Aggregated Produce Lots</h2>
+                    <p>Harvest batches gathered from smallholders and inspected for quality grade.</p>
+                </div>
+                <a href="/add-produce-lot" class="btn btn-primary btn-sm">
+                    {{ icon('package') }} + Add Produce Lot
+                </a>
+            </div>
+
+            <div class="table-responsive">
+                <table class="dash-table">
+                    <thead>
+                        <tr>
+                            <th>Lot Ref</th>
+                            <th>Farmer Kebele ID</th>
+                            <th>Crop &amp; Quality Grade</th>
+                            <th class="text-right">Quantity</th>
+                            <th>Harvest Date</th>
+                            <th class="text-center">Silo Status</th>
+                            <th class="text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="produce-lots-tbody"><tr><td colspan="7">Loading live records...</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Section 3: Buyer Orders & Dispatched Lots -->
+        <section id="orders" class="dash-card">
+            <div class="dash-card-header">
+                <div>
+                    <h2>
+                        {{ icon('handshake') }} Buyer Purchases &amp; Allocations
+                    </h2>
+                    <p>Orders placed by buyers against available hub lots.</p>
+                </div>
+                <span class="meta-sub">Automated Escrow &amp; Transporter Dispatch</span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="dash-table">
+                    <thead>
+                        <tr>
+                            <th>Order Ref</th>
+                            <th>Buyer</th>
+                            <th>Commodity</th>
+                            <th class="text-right">Volume</th>
+                            <th class="text-right">Total (ETB)</th>
+                            <th class="text-center">Status</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sales-orders-tbody"><tr><td colspan="7">Loading live records...</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="transfer-approvals" class="dash-card">
+            <div class="dash-card-header">
+                <div><h2>{{ icon('shield-check') }} Hub Delivery Approval Queue</h2><p>Confirm the goods attributed to your lots arrived at the destination hub, or report the problem for admin review.</p></div>
+            </div>
+            <div class="table-responsive">
+                <table class="dash-table"><thead><tr><th>Waybill / Route</th><th>Produce</th><th>Quantity</th><th>Requested</th><th>Status / Response</th><th>Action</th></tr></thead>
+                    <tbody id="transfer-approvals-tbody"><tr><td colspan="6">Loading delivery approvals...</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="hub-supply" class="dash-card">
+            <div class="dash-card-header">
+                <div><h2>{{ icon('truck') }} Request Supply from Nearby Hubs</h2><p>Request stock for {{ hub_location or 'your assigned hub' }}. The system checks neighboring hubs, protects a 10-Qtl reserve, and assigns an approved available carrier.</p></div>
+            </div>
+            <div class="dash-card-body">
+                <form id="hub-supply-form" class="hub-supply-form">
+                    <div class="search-field"><label for="supply-crop">Crop</label><select id="supply-crop" required><option value="">Loading configured crops...</option></select></div>
+                    <div class="search-field"><label for="supply-quality">Quality</label><select id="supply-quality" required><option>Grade 1 (Magna / Premium)</option><option>Grade 1 (Standard)</option><option>Grade 2 Commercial</option><option>Export Quality Verified</option></select></div>
+                    <div class="search-field"><label for="supply-quantity">Quantity (Qtl)</label><input id="supply-quantity" type="number" min="0.01" step="0.01" required placeholder="Quantity needed"></div>
+                    <button class="btn btn-primary" id="supply-request-submit" type="submit">Request nearby supply</button>
+                </form>
+                <div class="table-responsive" style="margin-top:1.25rem;">
+                    <table class="dash-table"><thead><tr><th>Requested</th><th>Produce</th><th>Quantity</th><th>Source</th><th>Waybill / Carrier</th><th>Status</th></tr></thead>
+                        <tbody id="supply-requests-tbody"><tr><td colspan="6">Loading supply requests...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <div id="lot-edit-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="lot-edit-title">
+        <div class="modal-box">
+            <div class="modal-head"><h3 id="lot-edit-title">Correct Produce Lot</h3><button type="button" class="modal-close" data-close-lot-modal aria-label="Close">&times;</button></div>
+            <form id="lot-edit-form">
+                <input type="hidden" id="edit-lot-id">
+                <div class="modal-body">
+                    <p class="meta-sub">Only fully available lots can be changed. Once any stock has been ordered or reserved, the lot is locked to protect the transaction record.</p>
+                    <div class="search-field"><label for="edit-lot-crop">Crop</label><select id="edit-lot-crop" required></select><small id="edit-lot-price"></small></div>
+                    <div class="search-field"><label for="edit-lot-quality">Quality grade</label><select id="edit-lot-quality" required>
+                        <option>Grade 1 (Magna / Premium)</option><option>Grade 1 (Standard)</option><option>Grade 2 Commercial</option><option>Export Quality Verified</option>
+                    </select></div>
+                    <div class="search-field"><label for="edit-lot-quantity">Quantity (Qtl)</label><input id="edit-lot-quantity" type="number" min="0.01" step="0.01" required></div>
+                    <div class="search-field"><label for="edit-lot-harvest">Harvest date</label><input id="edit-lot-harvest" type="date" required></div>
+                    <div class="search-field"><label for="edit-lot-origin">Source hub</label><select id="edit-lot-origin" required disabled>{% for hub in hubs %}<option value="{{ hub }}">{{ hub }}</option>{% endfor %}</select></div>
+                    <div class="search-field"><label for="edit-lot-target">Destination hub</label><select id="edit-lot-target"><option value="">No planned destination</option>{% for hub in hubs %}<option value="{{ hub }}">{{ hub }}</option>{% endfor %}</select></div>
+                </div>
+                <div class="modal-foot"><button type="button" class="btn btn-ghost" data-close-lot-modal>Cancel</button><button type="submit" class="btn btn-primary">Save correction</button></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast-msg" class="toast-msg" role="status" aria-live="polite"></div>
+
+    <!-- ===== Site Footer ===== -->
+    <footer class="site-footer">
+        <div class="wrap footer-grid">
+            <div>
+                <a class="brand" href="/" aria-label="AgriBridge home">
+                    {% include 'partials/logo.html' %}
+                    AgriBridge
+                </a>
+                <p class="footer-tag">Farm &middot; Market &middot; Deliver</p>
+            </div>
+            <ul class="footer-contact">
+                <li><a href="/logout">Switch Account</a></li>
+                <li><a href="/register-farmer">Onboard Farmer</a></li>
+                <li><a href="/add-produce-lot">Add Harvest</a></li>
+                <li><a href="mailto:cooperative@agribridge.et">cooperative@agribridge.et</a></li>
+            </ul>
+        </div>
+        <div class="wrap footer-base">
+            <div>&copy; 2026 AgriBridge Ethiopia. Extension &amp; Cooperative Agent Terminal.</div>
+            <div>Authorized by Ethiopian Agricultural Transformation Institute</div>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/agent_dashboard.js') }}"></script>
+</body>
+</html>

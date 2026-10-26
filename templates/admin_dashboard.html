@@ -1,0 +1,297 @@
+{% macro icon(name) -%}
+<svg class="icon" aria-hidden="true" focusable="false"><use href="#i-{{ name }}"/></svg>
+{%- endmacro %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administrator Command Center | AgriBridge Ethiopia</title>
+    <meta name="description" content="AgriBridge Central Oversight & Administrator Portal - User authorization, national grain buffer metrics, and audit history.">
+    <meta name="theme-color" content="#0A3D31">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M3.5 19.5C3.5 12 8 6.5 15.5 4.5c.4 7.5-3 13.5-12 15Z' fill='%230A7A41'/%3E%3Cpath d='M7 28C6 15 14 6 28.5 4.5 29 18.5 21 27 7 28Z' fill='%2312A05B'/%3E%3Cpath d='M8 26.5C13 19 18.5 13 25 8.5' fill='none' stroke='%23fff' stroke-width='1.7' stroke-linecap='round'/%3E%3C/svg%3E">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+Ethiopic:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin_dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-shell.css') }}">
+</head>
+<body class="admin-body">
+    {% include 'partials/icons.html' %}
+
+    <!-- ===== Top Header ===== -->
+    <header class="site-header" id="site-header">
+        <div class="wrap header-row">
+            <div class="brand-group">
+                <a class="brand" href="/" aria-label="AgriBridge home">
+                    {% include 'partials/logo.html' %}
+                    AgriBridge
+                </a>
+                <span class="portal-tag">Platform Administrator</span>
+            </div>
+
+            <nav class="dash-nav" aria-label="Admin navigation">
+                <button type="button" data-admin-view="staff">{{ icon('users') }}<span>Create Staff Account</span></button>
+                <button type="button" data-admin-view="crop-prices">{{ icon('banknote') }}<span>Crop Fixed Prices</span></button>
+                <button type="button" data-admin-view="verification">{{ icon('shield-check') }}<span>User Verification Queue</span></button>
+                <button type="button" data-admin-view="vehicles" aria-current="page">{{ icon('truck') }}<span>Vehicle Registration Approval</span><span class="nav-queue-count" id="nav-pending-vehicles-count" hidden>0</span></button>
+                <button type="button" data-admin-view="delivery-issues">{{ icon('shield-check') }}<span>Delivery Issues</span></button>
+            </nav>
+
+            <div class="header-user">
+                <div class="user-badge">
+                    <div class="user-avatar" title="{{ username or 'Administrator' }}">
+                        {{ (username[0] if username else 'M') | upper }}
+                    </div>
+                    <div class="user-info">
+                        <div class="user-name">{{ username or 'Ministry Administrator' }}</div>
+                        <div class="user-role">Superuser Access</div>
+                    </div>
+                </div>
+                <a href="/logout" class="btn btn-ghost btn-sm" title="Log out of terminal">
+                    {{ icon('arrow-right') }} Log out
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- ===== Main Dashboard Content ===== -->
+    <main class="main-content" id="main">
+
+        <!-- Welcome Banner -->
+        <section class="welcome-card" aria-label="Admin summary">
+            <div class="welcome-copy">
+                <div class="welcome-pill">
+                    {{ icon('shield-check') }} Platform Administration
+                </div>
+                <h1>Administrator Command Center</h1>
+                <p>
+                    Review account registrations and approve transporter vehicles.
+                </p>
+            </div>
+            <div class="welcome-actions">
+                <button type="button" class="btn btn-primary btn-lg" data-admin-view-target="staff">
+                    {{ icon('users') }} Create Staff Account
+                </button>
+                <button type="button" class="btn btn-outline btn-lg" data-admin-view-target="vehicles">
+                    {{ icon('truck') }} Review Vehicle Registration
+                </button>
+            </div>
+        </section>
+
+        <!-- KPI Metrics Grid -->
+        <section class="metrics-grid" aria-label="Key metrics">
+            <div class="metric-card">
+                <div class="metric-ic metric-ic-purple">
+                    {{ icon('users') }}
+                </div>
+                <div class="metric-content">
+                    <span class="metric-label">Total Users</span>
+                    <span class="metric-val" id="metric-total-users">0</span>
+                    <span class="metric-sub">Buyers &amp; transporters</span>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-ic metric-ic-amber">
+                    {{ icon('clock') }}
+                </div>
+                <div class="metric-content">
+                    <span class="metric-label">Pending Verification</span>
+                    <span class="metric-val" id="metric-pending-count">0</span>
+                    <span class="metric-sub">Awaiting credential check</span>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-ic metric-ic-blue">
+                    {{ icon('package') }}
+                </div>
+                <div class="metric-content">
+                    <span class="metric-label">Available Hub Stock</span>
+                    <span class="metric-val" id="metric-buffer-stock">0 <small style="font-size:.9rem;font-weight:600;">Qtl</small></span>
+                    <span class="metric-sub">Positive-quantity lots currently in hub silos</span>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-ic metric-ic-green">
+                    {{ icon('banknote') }}
+                </div>
+                <div class="metric-content">
+                    <span class="metric-label">Total Order Value</span>
+                    <span class="metric-val" id="metric-trade-settled">0 <small style="font-size:.9rem;font-weight:600;">ETB</small></span>
+                    <span class="metric-sub">Recorded buyer order value</span>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Staff account creation view -->
+        <section id="staff-account" class="dash-card admin-view" data-admin-panel="staff" hidden>
+            <div class="dash-card-header">
+                <div>
+                    <h2>{{ icon('users') }} Create Staff Account</h2>
+                    <p>Create a database-backed account for an agent or transporter.</p>
+                </div>
+                <span class="meta-sub">Staff sign in at /staff/login</span>
+            </div>
+            <form id="staff-account-form">
+                <div class="dash-card-body">
+                    <div class="staff-account-grid">
+                        <div class="search-field">
+                            <label for="staff-role">Staff role</label>
+                            <select id="staff-role" name="role" required>
+                                <option value="agent">Agent</option>
+                                <option value="transporter">Transporter</option>
+                            </select>
+                        </div>
+                        <div class="search-field" id="staff-hub-field">
+                            <label for="staff-hub">Agent hub assignment</label>
+                            <select id="staff-hub" name="hub_location" required>
+                                <option value="" disabled selected>Select the hub this agent will oversee</option>
+                                {% for hub in hubs %}<option value="{{ hub }}">{{ hub }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div class="search-field">
+                            <label for="staff-name">Full name</label>
+                            <input type="text" id="staff-name" name="full_name" placeholder="e.g. Tariku Fikadu" required>
+                        </div>
+                        <div class="search-field">
+                            <label for="staff-username">Staff login name</label>
+                            <input type="text" id="staff-username" name="username" autocomplete="off" required>
+                        </div>
+                        <div class="search-field">
+                            <label for="staff-company">Cooperative / company (optional)</label>
+                            <input type="text" id="staff-company" name="company_name">
+                        </div>
+                        <div class="search-field">
+                            <label for="staff-password">Temporary password</label>
+                            <input type="password" id="staff-password" name="password" autocomplete="new-password" minlength="8" required>
+                        </div>
+                        <div class="search-field">
+                            <label for="staff-license">License / registration reference (optional)</label>
+                            <input type="text" id="staff-license" name="license_ref">
+                        </div>
+                    </div>
+                    <div class="staff-form-actions">
+                        <p>Passwords are stored as hashes. Give the staff member their login name and temporary password securely.</p>
+                        <button type="submit" class="btn btn-primary">{{ icon('users') }} Create Account</button>
+                    </div>
+                </div>
+            </form>
+            <div class="dash-card-header" style="margin-top:1.5rem;">
+                <div><h3>Agent Hub Assignments</h3><p>Assign existing agents to the hub whose inbound deliveries they review.</p></div>
+            </div>
+            <div class="table-responsive">
+                <table class="dash-table"><thead><tr><th>Agent</th><th>Login</th><th>Assigned Hub</th><th>Action</th></tr></thead>
+                    <tbody id="agent-hub-assignments-tbody"><tr><td colspan="4">Loading agents...</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="crop-prices" class="dash-card admin-view" data-admin-panel="crop-prices" hidden>
+            <div class="dash-card-header"><div><h2>{{ icon('banknote') }} Fixed Crop Prices</h2><p>Set one buyer price per quintal for each crop. Agents cannot override these rates on produce lots.</p></div></div>
+            <form id="crop-price-form" class="dash-card-body" style="display:flex;gap:1rem;align-items:end;flex-wrap:wrap;">
+                <div class="search-field"><label for="price-crop-name">Crop name</label><input id="price-crop-name" maxlength="100" required></div>
+                <div class="search-field"><label for="fixed-price-qtl">Fixed price (ETB / Qtl)</label><input id="fixed-price-qtl" type="number" min="0.01" step="0.01" required></div>
+                <button type="submit" class="btn btn-primary">Save crop price</button>
+            </form>
+            <div class="table-responsive"><table class="dash-table"><thead><tr><th>Crop</th><th>Fixed price / Qtl</th><th>Status</th><th>Actions</th></tr></thead>
+                <tbody id="crop-prices-tbody"><tr><td colspan="4">Loading crop prices...</td></tr></tbody>
+            </table></div>
+        </section>
+
+        <!-- User Verification Queue view -->
+        <section id="verification" class="dash-card admin-view" data-admin-panel="verification" hidden>
+            <div class="dash-card-header">
+                <div>
+                    <h2>{{ icon('shield-check') }} User Verification Queue</h2>
+                    <p>Review and authorize newly registered cooperative agents, commercial buyers, and carrier logistics operators.</p>
+                </div>
+                <span class="meta-sub">Identity &amp; License Vetting</span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="dash-table">
+                    <thead>
+                        <tr>
+                            <th>User ID</th>
+                            <th>Applicant Full Name / Enterprise</th>
+                            <th>Requested Role</th>
+                            <th>License / Registration Ref</th>
+                            <th>Registration Date</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-right">Admin Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="verification-tbody"><tr><td colspan="7">Loading live records...</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Section 2: Fleet Vehicle Inspection Queue -->
+        <section id="vehicles" class="dash-card admin-view" data-admin-panel="vehicles">
+            <div class="dash-card-header">
+                <div>
+                    <h2>{{ icon('truck') }} Vehicle Registration Approval Queue</h2>
+                    <p>Inspect newly registered commercial vehicles and authorize them for regional hub cargo distribution.</p>
+                </div>
+                <span class="badge badge-amber" id="pending-vehicles-badge">Inspection Required</span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="dash-table">
+                    <thead>
+                        <tr>
+                            <th>Plate Number</th>
+                            <th>Vehicle Model</th>
+                            <th class="text-right">Payload Capacity</th>
+                            <th>Assigned Driver</th>
+                            <th>Driver Contact</th>
+                            <th class="text-center">Inspection Status</th>
+                            <th class="text-right">Roadworthiness Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="vehicle-inspection-tbody"><tr><td colspan="7">Loading live records...</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="delivery-issues" class="dash-card admin-view" data-admin-panel="delivery-issues" hidden>
+            <div class="dash-card-header"><div><h2>{{ icon('shield-check') }} Reported Hub Delivery Issues</h2><p>Review destination-hub agent reports and choose whether to complete, retry, or cancel a transfer.</p></div></div>
+            <div class="table-responsive"><table class="dash-table"><thead><tr><th>Waybill / Route</th><th>Reported By</th><th>Produce</th><th>Quantity</th><th>Reported Problem</th><th>Reported At</th><th>Admin Resolution</th></tr></thead>
+                <tbody id="delivery-issues-tbody"><tr><td colspan="7">Loading reported issues...</td></tr></tbody>
+            </table></div>
+        </section>
+
+        </main>
+
+    <!-- Toast Notification -->
+    <div id="toast-msg" class="toast-msg" role="status" aria-live="polite"></div>
+
+    <!-- ===== Site Footer ===== -->
+    <footer class="site-footer">
+        <div class="wrap footer-grid">
+            <div>
+                <a class="brand" href="/" aria-label="AgriBridge home">
+                    {% include 'partials/logo.html' %}
+                    AgriBridge
+                </a>
+                <p class="footer-tag">Farm &middot; Market &middot; Deliver</p>
+            </div>
+            <ul class="footer-contact">
+                <li><a href="/logout">Log out</a></li>
+                <li><button type="button" data-admin-view-target="verification">User Vetting</button></li>
+            </ul>
+        </div>
+        <div class="wrap footer-base">
+            <div>&copy; 2026 AgriBridge Ethiopia. Platform Administration.</div>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/admin_dashboard.js') }}"></script>
+</body>
+</html>

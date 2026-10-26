@@ -1,0 +1,329 @@
+{% macro icon(name) -%}
+<svg class="icon" aria-hidden="true" focusable="false"><use href="#i-{{ name }}"/></svg>
+{%- endmacro %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transporter Logistics Portal | AgriBridge Ethiopia</title>
+    <meta name="description" content="AgriBridge Transporter Logistics Portal - Fleet management, route claims, and official agricultural waybills across Ethiopia.">
+    <meta name="theme-color" content="#0A3D31">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M3.5 19.5C3.5 12 8 6.5 15.5 4.5c.4 7.5-3 13.5-12 15Z' fill='%230A7A41'/%3E%3Cpath d='M7 28C6 15 14 6 28.5 4.5 29 18.5 21 27 7 28Z' fill='%2312A05B'/%3E%3Cpath d='M8 26.5C13 19 18.5 13 25 8.5' fill='none' stroke='%23fff' stroke-width='1.7' stroke-linecap='round'/%3E%3C/svg%3E">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+Ethiopic:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/base.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/transporter_dashboard.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard-shell.css') }}">
+</head>
+<body class="transporter-body">
+    {% include 'partials/icons.html' %}
+
+    <!-- ===== Top Header ===== -->
+    <header class="site-header" id="site-header">
+        <div class="wrap header-row">
+            <div class="brand-group">
+                <a class="brand" href="/" aria-label="AgriBridge home">
+                    {% include 'partials/logo.html' %}
+                    AgriBridge
+                </a>
+                <span class="portal-tag">Transporter Logistics</span>
+            </div>
+
+            <nav class="dash-nav" aria-label="Transporter navigation">
+                <a href="#available-loads" aria-current="true">Loads &amp; Active Trip</a>
+                <a href="#available-loads">Available Loads</a>
+                <a href="#fleet">Vehicle Fleet</a>
+                <a href="#completed-trips">Waybills &amp; History</a>
+            </nav>
+
+            <div class="header-user">
+                <div class="user-badge">
+                    <div class="user-avatar" title="{{ username or 'Transporter' }}">
+                        {{ (username[0] if username else 'T') | upper }}
+                    </div>
+                    <div class="user-info">
+                        <div class="user-name">{{ username or 'Licensed Carrier' }}</div>
+                        <div class="user-role">Fleet Operator</div>
+                    </div>
+                </div>
+                <a href="/logout" class="btn btn-ghost btn-sm" title="Log out of terminal">
+                    {{ icon('arrow-right') }} Log out
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- ===== Main Dashboard Content ===== -->
+    <main class="main-content" id="main">
+
+        <!-- Welcome Banner -->
+        <section class="welcome-card" aria-label="Transporter summary">
+            <div class="welcome-copy">
+                <div class="welcome-pill">
+                    {{ icon('truck') }} Certified Agricultural Logistics Partner
+                </div>
+                <h1>Logistics Command Center</h1>
+                <p>
+                    Coordinating grain, oilseed, and coffee transport from rural collection centers to regional aggregation hubs and food processing reserves.
+                </p>
+            </div>
+            <div class="welcome-actions">
+                <button type="button" class="btn btn-primary btn-lg" data-open-modal="vehicle-modal">
+                    {{ icon('truck') }} Register Vehicle
+                </button>
+                <a href="#available-loads" class="btn btn-outline btn-lg">
+                    {{ icon('package') }} View Bulk Loads
+                </a>
+            </div>
+        </section>
+
+        <!-- KPI Metrics Grid -->
+        <section class="metrics-grid" aria-label="Key metrics">
+            <div class="metric-card">
+                <div class="metric-ic metric-ic-amber">
+                    {{ icon('truck') }}
+                </div>
+                <div class="metric-content">
+                    <span class="metric-label">Active Consignments</span>
+                    <span class="metric-val" id="metric-active-consignments">0 <small style="font-size:.9rem;font-weight:600;">Trips</small></span>
+                    <span class="metric-sub">In transit to destination</span>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-ic metric-ic-blue">
+                    {{ icon('package') }}
+                </div>
+                <div class="metric-content">
+                    <span class="metric-label">Available Hub Loads</span>
+                    <span class="metric-val" id="metric-available-loads">0</span>
+                    <span class="metric-sub">Ready for carrier assignment</span>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-ic metric-ic-green">
+                    {{ icon('shield-check') }}
+                </div>
+                <div class="metric-content">
+                    <span class="metric-label">Registered Fleet</span>
+                    <span class="metric-val" id="metric-fleet-count">0 <small style="font-size:.9rem;font-weight:600;">Trucks</small></span>
+                    <span class="metric-sub">Includes vehicles awaiting inspection</span>
+                </div>
+            </div>
+
+        </section>
+
+        <section id="available-loads" class="dash-card">
+            <div class="dash-card-header"><div><h2>Available Loads</h2><p>Buyer loads are available to claim. Hub replenishment duties are assigned automatically when you have an approved vehicle free.</p></div></div>
+            <div class="dash-card-body">
+                <div id="active-route" class="active-trip-compact" hidden>
+                    <div class="active-trip-compact-head">
+                        <div><span class="meta-sub">Active trip · <span id="active-waybill-id">—</span></span><h3 class="route-title" id="active-route-title">—</h3></div>
+                        <span class="badge badge-amber" id="active-route-status-badge">In progress</span>
+                    </div>
+                    <div class="active-trip-compact-meta"><span id="active-assigned-cargo"><strong>—</strong></span><span id="active-assigned-vehicle"><strong>—</strong></span><span>Current status: <strong id="current-status-text">—</strong></span></div>
+                    <details class="active-trip-progress"><summary>Trip progress</summary>
+                        <div class="stepper-container"><div class="stepper-track"><div class="stepper-fill" id="stepper-fill"></div></div>
+                            <div class="stepper-steps"><div class="step-item"><span class="step-num">1</span><span class="step-name">Dispatched</span></div><div class="step-item"><span class="step-num">2</span><span class="step-name">Loaded at Hub</span></div><div class="step-item"><span class="step-num">3</span><span class="step-name">In Transit</span></div><div class="step-item"><span class="step-num">4</span><span class="step-name">Delivered</span></div></div>
+                        </div>
+                    </details>
+                    <button type="button" id="advance-status-btn" class="btn btn-primary">Update trip status</button>
+                </div>
+                <div class="loads-grid" id="available-loads-grid"><div>Loading live loads...</div></div>
+            </div>
+        </section>
+        <section id="fleet" class="dash-card">
+            <div class="dash-card-header"><div><h2>Vehicle Fleet</h2><p>Only vehicles approved by an administrator can be assigned to a load.</p></div></div>
+            <div class="dash-card-body"><div class="fleet-grid" id="fleet-grid"><div>Loading your fleet...</div></div></div>
+        </section>
+<!-- Section 4: Completed Distribution & Settled Waybills -->
+        <section id="completed-trips" class="dash-card">
+            <div class="dash-card-header">
+                <div>
+                    <h2>{{ icon('clipboard-check') }} Completed Distribution &amp; Settled Waybills</h2>
+                    <p>Delivery records for shipments assigned to your transporter account.</p>
+                </div>
+                <span class="meta-sub">AgriBridge shipment history</span>
+            </div>
+
+            <div class="table-responsive">
+                <table class="dash-table">
+                    <thead>
+                        <tr>
+                            <th>Waybill ID</th>
+                            <th>Route Details</th>
+                            <th class="text-right">Tonnage</th>
+                            <th class="text-right">Tariff (ETB)</th>
+                            <th>Completed Date</th>
+                            <th class="text-center">Status</th>
+                            <th class="text-right">Documentation</th>
+                        </tr>
+                    </thead>
+                    <tbody id="completed-history-tbody"><tr><td colspan="7">Loading live records...</td></tr></tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ===== Modal: Register Vehicle ===== -->
+    <div id="vehicle-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="vehicle-modal-title">
+        <div class="modal-box">
+            <div class="modal-head">
+                <h3 id="vehicle-modal-title">Register Commercial Vehicle to Fleet</h3>
+                <button type="button" class="modal-close" data-close-modal="vehicle-modal" aria-label="Close dialog">&times;</button>
+            </div>
+
+            <form id="vehicle-form">
+                <div class="modal-body">
+                    <p style="font-size:.875rem; color:var(--muted); margin:0;">
+                        Add a transport vehicle to your carrier fleet (Maximum quota: 5 vehicles). Newly registered vehicles must undergo administrative roadworthiness approval before dispatch.
+                    </p>
+
+                    <div class="input-field">
+                        <label for="vehicle-plate">License Plate Number</label>
+                        <input type="text" id="vehicle-plate" name="plate_number" placeholder="e.g. ET-3-9942" required>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+                        <div class="input-field">
+                            <label for="vehicle-type">Vehicle Model / Type</label>
+                            <select id="vehicle-type" name="vehicle_type">
+                                <option value="Isuzu FSR Medium Truck">Isuzu FSR (100 - 150 Qtl)</option>
+                                <option value="Sino Truck Heavy Duty">Sino Truck Heavy (300 - 400 Qtl)</option>
+                                <option value="Mitsubishi Fuso">Mitsubishi Fuso (150 - 200 Qtl)</option>
+                                <option value="Pickup / Light Truck">Pickup / Light (30 - 50 Qtl)</option>
+                            </select>
+                        </div>
+                        <div class="input-field">
+                            <label for="vehicle-capacity">Capacity (Quintals)</label>
+                            <input type="number" id="vehicle-capacity" name="capacity_quintals" placeholder="e.g. 150" min="1" required>
+                        </div>
+                    </div>
+
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+                        <div class="input-field">
+                            <label for="vehicle-driver">Assigned Driver Name</label>
+                            <input type="text" id="vehicle-driver" name="driver_name" placeholder="e.g. Girma Tesfaye" required>
+                        </div>
+                        <div class="input-field">
+                            <label for="vehicle-phone">Driver Phone Number</label>
+                            <input type="tel" id="vehicle-phone" name="phone_number" placeholder="+251 9..." required>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-foot">
+                    <button type="button" class="btn btn-ghost" data-close-modal="vehicle-modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">
+                        {{ icon('truck') }} Register Vehicle
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== Modal: Digital Waybill View ===== -->
+    <div id="waybill-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="waybill-modal-title">
+        <div class="modal-box">
+            <div class="modal-head">
+                <h3 id="waybill-modal-title">Official Agricultural Consignment Waybill</h3>
+                <button type="button" class="modal-close" data-close-modal="waybill-modal" aria-label="Close dialog">&times;</button>
+            </div>
+
+            <div class="modal-body" style="background:#fff;">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid var(--line); padding-bottom:1rem;">
+                    <div>
+                        <div class="brand" style="font-size:1.2rem;">
+                            {% include 'partials/logo.html' %}
+                            AgriBridge
+                        </div>
+                        <div class="meta-sub">AgriBridge shipment record</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div class="code-ref" id="wb-modal-ref"></div>
+                        <div class="meta-sub">Trip reference</div>
+                    </div>
+                </div>
+
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem; font-size:.875rem;">
+                    <div>
+                        <span class="meta-sub">Carrier Account:</span>
+                        <div style="font-weight:700; color:var(--deep);">{{ username or 'Licensed Transporter' }}</div>
+                        <div class="meta-sub" id="wb-modal-vehicle"></div>
+                    </div>
+                    <div>
+                        <span class="meta-sub">Designated Driver:</span>
+                        <div style="font-weight:700; color:var(--deep);" id="wb-modal-driver"></div>
+                        <div class="meta-sub">Assigned transporter</div>
+                    </div>
+                </div>
+
+                <div style="border:1px solid var(--line); border-radius:8px; overflow:hidden;">
+                    <table class="dash-table">
+                        <thead>
+                            <tr>
+                                <th>Assigned Route</th>
+                                <th>Cargo Description</th>
+                                <th class="text-right">Volume</th>
+                                <th class="text-right">Tariff</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td style="font-weight:700;" id="wb-modal-route"></td>
+                                <td id="wb-modal-cargo"></td>
+                                <td class="text-right" id="wb-modal-tonnage"></td>
+                                <td class="text-right" style="font-weight:800; color:var(--brand);" id="wb-modal-tariff"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="meta-sub" style="text-align:center;">
+                    AgriBridge shipment record for the assigned load.
+                </div>
+            </div>
+
+            <div class="modal-foot">
+                <button type="button" class="btn btn-ghost" data-close-modal="waybill-modal">Close</button>
+                <button type="button" id="print-waybill-btn" class="btn btn-primary">
+                    {{ icon('clipboard-check') }} Print Waybill
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast-msg" class="toast-msg" role="status" aria-live="polite"></div>
+
+    <!-- ===== Site Footer ===== -->
+    <footer class="site-footer">
+        <div class="wrap footer-grid">
+            <div>
+                <a class="brand" href="/" aria-label="AgriBridge home">
+                    {% include 'partials/logo.html' %}
+                    AgriBridge
+                </a>
+                <p class="footer-tag">Farm &middot; Market &middot; Deliver</p>
+            </div>
+            <ul class="footer-contact">
+                <li><a href="/logout">Switch Account</a></li>
+                <li><a href="#available-loads">Loads &amp; Active Trip</a></li>
+                <li><a href="#available-loads">Available Loads</a></li>
+                <li><a href="mailto:logistics@agribridge.et">logistics@agribridge.et</a></li>
+            </ul>
+        </div>
+        <div class="wrap footer-base">
+            <div>&copy; 2026 AgriBridge Ethiopia. Logistics &amp; Transport Coordination System.</div>
+            <div>Checkpoint Clearance &amp; Electronic Escrow Verified</div>
+        </div>
+    </footer>
+
+    <script src="{{ url_for('static', filename='js/transporter_dashboard.js') }}"></script>
+</body>
+</html>
